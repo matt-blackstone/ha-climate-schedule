@@ -115,11 +115,13 @@ data:
 
 ### Seasonal automation example
 
-This example evaluates a rolling average of overnight outdoor lows whenever
-the sensor changes and once at Home Assistant startup. Replace
-`sensor.outdoor_7_day_average_low` with your sensor. The values shown are in
-°F: under 45 selects **Winter**, 45–59 selects **Spring / Fall**, and 60 or
-above selects **Summer**. Adjust the thresholds for your climate.
+This example reacts when a rolling average of overnight outdoor lows changes;
+it does not override a season selected by the user at Home Assistant startup.
+`sensor.outdoor_7_day_average_low` is intended to be a Home Assistant
+**Statistics** helper based on an outdoor-temperature entity. Replace it with
+your helper's entity ID. The values shown are in °F: under 45 selects
+**Winter**, 45–59 selects **Spring / Fall**, and 60 or above selects
+**Summer**. Adjust the thresholds for your climate.
 
 ```yaml
 alias: Set Climate Schedule season from outdoor average low
@@ -127,24 +129,36 @@ description: Selects the active season from a rolling outdoor low-temperature se
 trigger:
   - platform: state
     entity_id: sensor.outdoor_7_day_average_low
-  - platform: homeassistant
-    event: start
-condition:
-  - condition: template
-    value_template: >-
-      {{ states('sensor.outdoor_7_day_average_low') | is_number }}
 action:
-  - action: climate_schedule.set_active_season
-    data:
-      season_id: >-
-        {% set low = states('sensor.outdoor_7_day_average_low') | float %}
-        {% if low < 45 %}
-          winter
-        {% elif low < 60 %}
-          shoulder
-        {% else %}
-          summer
-        {% endif %}
+  - if:
+      - condition: state
+        entity_id: sensor.outdoor_7_day_average_low
+        state:
+          - unknown
+          - unavailable
+    then:
+      - stop: Outdoor average low is not available
+  - choose:
+      - conditions:
+          - condition: numeric_state
+            entity_id: sensor.outdoor_7_day_average_low
+            below: 45
+        sequence:
+          - action: climate_schedule.set_active_season
+            data:
+              season_id: winter
+      - conditions:
+          - condition: numeric_state
+            entity_id: sensor.outdoor_7_day_average_low
+            below: 60
+        sequence:
+          - action: climate_schedule.set_active_season
+            data:
+              season_id: shoulder
+    default:
+      - action: climate_schedule.set_active_season
+        data:
+          season_id: summer
 mode: single
 ```
 
