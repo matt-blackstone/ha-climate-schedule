@@ -5,6 +5,8 @@
 A standalone Home Assistant custom integration and dashboard card for persistent,
 seasonal climate schedules.
 
+![Climate Schedule card showing a weekly temperature schedule](docs/card-preview.png)
+
 It is intentionally independent from the Multi-Split Zone Controller. Any
 `climate.*` entity can be scheduled, including native Home Assistant climate
 entities and entities supplied by other custom integrations.
