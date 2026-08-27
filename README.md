@@ -103,6 +103,17 @@ entity from a dashboard or an automation immediately activates and applies that
 season. Changes made by the schedule card or the integration's service action
 are reflected back to the select entity.
 
+**Shoulder season** is the HVAC term for the spring/autumn transition between
+heating and cooling. The card and select intentionally use the friendlier
+**Spring / Fall** label. Services and automations use stable, non-localized
+`season_id` values so they do not depend on a display label.
+
+| Card and select label | Service or automation `season_id` |
+| --- | --- |
+| Winter | `winter` |
+| Spring / Fall | `shoulder` |
+| Summer | `summer` |
+
 For example:
 
 ```yaml
@@ -166,7 +177,8 @@ mode: single
 
 ### `climate_schedule.set_active_season`
 
-Selects and immediately applies one of `winter`, `summer`, or `shoulder`.
+Selects and immediately applies the stable `season_id` values shown in the
+table above.
 
 ```yaml
 action: climate_schedule.set_active_season
