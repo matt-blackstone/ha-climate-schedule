@@ -71,7 +71,7 @@ function displayTime(value) {
   return `${clockHour}${minute === "00" ? "" : `:${minute}`}${suffix}`;
 }
 
-class ZoneClimateScheduleCard extends HTMLElement {
+class ClimateScheduleCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -916,7 +916,7 @@ class ZoneClimateScheduleCard extends HTMLElement {
 }
 
 if (!customElements.get("climate-schedule-card")) {
-  customElements.define("climate-schedule-card", ZoneClimateScheduleCard);
+  customElements.define("climate-schedule-card", ClimateScheduleCard);
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "climate-schedule-card",
@@ -924,8 +924,4 @@ if (!customElements.get("climate-schedule-card")) {
     description: "Standalone seasonal weekly schedule card for Home Assistant climate entities.",
     preview: true,
   });
-}
-
-if (!customElements.get("zone-climate-schedule-card")) {
-  customElements.define("zone-climate-schedule-card", class extends ZoneClimateScheduleCard {});
 }

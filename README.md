@@ -7,8 +7,7 @@ seasonal climate schedules.
 
 ![Climate Schedule card showing a weekly temperature schedule](docs/card-preview.png)
 
-It is intentionally independent from the Multi-Split Zone Controller. Any
-`climate.*` entity can be scheduled, including native Home Assistant climate
+Any `climate.*` entity can be scheduled, including native Home Assistant climate
 entities and entities supplied by other custom integrations.
 
 ## Requirements
@@ -91,9 +90,6 @@ entities:
     name: Office
 ```
 
-The legacy card type `custom:zone-climate-schedule-card` remains available as a
-compatibility alias.
-
 ## Active season entity
 
 The integration creates:
@@ -115,6 +111,41 @@ target:
   entity_id: select.climate_schedule_active_season
 data:
   option: Spring / Fall
+```
+
+### Seasonal automation example
+
+This example evaluates a rolling average of overnight outdoor lows whenever
+the sensor changes and once at Home Assistant startup. Replace
+`sensor.outdoor_7_day_average_low` with your sensor. The values shown are in
+°F: under 45 selects **Winter**, 45–59 selects **Spring / Fall**, and 60 or
+above selects **Summer**. Adjust the thresholds for your climate.
+
+```yaml
+alias: Set Climate Schedule season from outdoor average low
+description: Selects the active season from a rolling outdoor low-temperature sensor.
+trigger:
+  - platform: state
+    entity_id: sensor.outdoor_7_day_average_low
+  - platform: homeassistant
+    event: start
+condition:
+  - condition: template
+    value_template: >-
+      {{ states('sensor.outdoor_7_day_average_low') | is_number }}
+action:
+  - action: climate_schedule.set_active_season
+    data:
+      season_id: >-
+        {% set low = states('sensor.outdoor_7_day_average_low') | float %}
+        {% if low < 45 %}
+          winter
+        {% elif low < 60 %}
+          shoulder
+        {% else %}
+          summer
+        {% endif %}
+mode: single
 ```
 
 ## Services
