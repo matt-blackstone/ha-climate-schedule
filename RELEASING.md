@@ -16,7 +16,7 @@
    ```
 
 5. Wait for both GitHub Actions checks, **HACS** and **Hassfest**, to pass.
-6. Create a GitHub release named `v0.1.0` from the matching `v0.1.0` tag.
+6. Create a GitHub release named `vX.Y.Z` from the matching `vX.Y.Z` tag.
 7. In Home Assistant, add the public repository as a HACS **Integration**
    custom repository and verify install, setup, card loading, and an active
    schedule period.
