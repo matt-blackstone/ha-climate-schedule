@@ -1,0 +1,15 @@
+set_active_season:
+  fields:
+    season_id:
+      required: true
+      selector:
+        select:
+          options:
+            - label: Winter
+              value: winter
+            - label: Summer
+              value: summer
+            - label: Spring / Fall
+              value: shoulder
+
+apply_now: {}

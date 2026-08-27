@@ -1,0 +1,13 @@
+{
+  "domain": "climate_schedule",
+  "name": "Climate Schedule",
+  "codeowners": ["@matt-blackstone"],
+  "config_flow": true,
+  "dependencies": ["climate", "http", "websocket_api"],
+  "documentation": "https://github.com/matt-blackstone/ha-climate-schedule",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/matt-blackstone/ha-climate-schedule/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

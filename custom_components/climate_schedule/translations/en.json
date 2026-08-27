@@ -1,0 +1,30 @@
+{
+  "title": "Climate Schedule",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Climate Schedule",
+        "description": "Adds persistent seasonal schedules for climate entities and serves the Climate Schedule dashboard card."
+      }
+    },
+    "abort": {
+      "already_configured": "Climate Schedule is already configured."
+    }
+  },
+  "services": {
+    "set_active_season": {
+      "name": "Set active season",
+      "description": "Selects the seasonal schedule Home Assistant will execute.",
+      "fields": {
+        "season_id": {
+          "name": "Season",
+          "description": "Seasonal schedule to activate."
+        }
+      }
+    },
+    "apply_now": {
+      "name": "Apply current schedule",
+      "description": "Immediately applies each climate entity's currently active period."
+    }
+  }
+}
