@@ -32,8 +32,6 @@ from .const import (
     STORAGE_VERSION,
 )
 
-DEFAULT_GRADIENT_END = "#ef4444"
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -56,21 +54,8 @@ def default_document() -> dict[str, Any]:
         "revision": 0,
         "active_season": SEASON_IDS[0],
         "seasons": [dict(season) for season in SEASONS],
-        "gradient_end": DEFAULT_GRADIENT_END,
         "entities": {},
     }
-
-
-def _gradient_end(value: Any) -> str:
-    """Validate a six-digit CSS color used for the schedule gradient."""
-    if (
-        not isinstance(value, str)
-        or len(value) != 7
-        or value[0] != "#"
-        or any(character not in "0123456789abcdefABCDEF" for character in value[1:])
-    ):
-        raise ScheduleValidationError("Gradient color must be a six-digit hex color")
-    return value.lower()
 
 
 def _clock_minutes(value: Any, *, end: bool = False) -> int:
@@ -111,9 +96,6 @@ def normalise_document(raw: Any) -> dict[str, Any]:
     if active_season not in SEASON_IDS:
         raise ScheduleValidationError(f"Unknown season: {active_season!r}")
 
-    gradient_end = _gradient_end(
-        raw.get("gradient_end", DEFAULT_GRADIENT_END)
-    )
     raw_entities = raw.get("entities", {})
     if not isinstance(raw_entities, dict):
         raise ScheduleValidationError("entities must be an object")
@@ -201,7 +183,6 @@ def normalise_document(raw: Any) -> dict[str, Any]:
         "revision": 0,
         "active_season": active_season,
         "seasons": [dict(season) for season in SEASONS],
-        "gradient_end": gradient_end,
         "entities": entities,
     }
 

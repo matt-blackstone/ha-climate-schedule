@@ -24,7 +24,7 @@ HVAC mode is supported by the target entity.
 - Winter, Summer, and Spring / Fall weekly schedules
 - A separately selected active season exposed as a native Home Assistant select entity
 - Per-period target temperature and HVAC mode
-- Card-level editable temperature color gradient
+- Card-level YAML-configurable temperature color gradient
 - Click an empty gap to select its entire duration
 - Drag either period edge in 15-minute increments
 - Persistent Home Assistant storage with revision conflict protection
@@ -81,6 +81,8 @@ type: custom:climate-schedule-card
 title: Climate schedules
 eyebrow: Seasonal thermostat schedules
 default_season: winter
+gradient_start: "#2563eb"
+gradient_end: "#ef4444"
 entities:
   - entity: climate.master_bedroom
     name: Master Bedroom
@@ -88,6 +90,26 @@ entities:
     name: Kids Bedroom
   - entity: climate.office
     name: Office
+```
+
+### Temperature gradient color
+
+`gradient_start` and `gradient_end` control the cool and warm ends of the
+card's temperature gradient. The card blends directly between those two colors;
+there is no midpoint color. Both options accept a six-digit hexadecimal color.
+They default to blue (`#2563eb`) and red (`#ef4444`). Set them in card YAML;
+the card intentionally does not offer an on-card color picker, so a dashboard's
+appearance remains explicit and reviewable.
+
+For example, use orange rather than the default red endpoint:
+
+```yaml
+type: custom:climate-schedule-card
+gradient_start: "#2563eb"
+gradient_end: "#f97316"
+entities:
+  - entity: climate.master_bedroom
+    name: Master Bedroom
 ```
 
 ## Active season entity

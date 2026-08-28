@@ -24,7 +24,17 @@ const DEFAULT_SEASONS = [
   { id: "shoulder", name: "Spring / Fall", icon: "🍃", defaultMode: "auto" },
 ];
 
+const DEFAULT_GRADIENT_START = "#2563eb";
 const DEFAULT_GRADIENT_END = "#ef4444";
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+function configuredColor(value, defaultColor, optionName) {
+  if (value == null) return defaultColor;
+  if (!HEX_COLOR.test(value)) {
+    throw new Error(`climate-schedule-card ${optionName} must be a six-digit hex color`);
+  }
+  return value.toLowerCase();
+}
 
 const HVAC_MODES = [
   { id: "heat", label: "Heat", icon: "♨" },
@@ -86,6 +96,7 @@ class ClimateScheduleCard extends HTMLElement {
     this._documentEntities = {};
     this._revision = 0;
     this._activeSeason = DEFAULT_SEASONS[0].id;
+    this._gradientStart = DEFAULT_GRADIENT_START;
     this._gradientEnd = DEFAULT_GRADIENT_END;
     this._loaded = false;
     this._loading = false;
@@ -94,7 +105,6 @@ class ClimateScheduleCard extends HTMLElement {
     this._saveChain = Promise.resolve();
     this._unsubscribe = null;
     this.shadowRoot.addEventListener("click", (event) => this._handleClick(event));
-    this.shadowRoot.addEventListener("change", (event) => this._handleChange(event));
     this.shadowRoot.addEventListener("keydown", (event) => this._handleKeydown(event));
     this.shadowRoot.addEventListener("pointerdown", (event) => this._startResize(event));
     this.shadowRoot.addEventListener("pointermove", (event) => this._moveResize(event));
@@ -109,6 +119,16 @@ class ClimateScheduleCard extends HTMLElement {
     }
     this._config = config;
     this._zones = zones;
+    this._gradientStart = configuredColor(
+      config.gradient_start,
+      DEFAULT_GRADIENT_START,
+      "gradient_start",
+    );
+    this._gradientEnd = configuredColor(
+      config.gradient_end,
+      DEFAULT_GRADIENT_END,
+      "gradient_end",
+    );
     this._seasons = DEFAULT_SEASONS;
     this._selectedSeason = config.default_season || this._seasons[0].id;
     this._activeSeason = this._selectedSeason;
@@ -125,7 +145,7 @@ class ClimateScheduleCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    this._render({ preserveEditor: true });
     this._loadSchedule();
   }
 
@@ -142,7 +162,7 @@ class ClimateScheduleCard extends HTMLElement {
     if (!this._hass || this._loading || (this._loaded && !force)) return;
     this._loading = true;
     this._loadError = "";
-    this._render();
+    this._render({ preserveEditor: true });
     try {
       const document = await this._hass.callWS({ type: "climate_schedule/get" });
       this._applyDocument(document);
@@ -160,16 +180,13 @@ class ClimateScheduleCard extends HTMLElement {
       this._loadError = error?.message || "Climate Schedule integration is not available.";
     } finally {
       this._loading = false;
-      this._render();
+      this._render({ preserveEditor: true });
     }
   }
 
   _applyDocument(document) {
     this._revision = Number(document.revision) || 0;
     this._activeSeason = document.active_season || DEFAULT_SEASONS[0].id;
-    this._gradientEnd = /^#[0-9a-f]{6}$/i.test(document.gradient_end)
-      ? document.gradient_end.toLowerCase()
-      : DEFAULT_GRADIENT_END;
     this._seasons = Array.isArray(document.seasons) && document.seasons.length
       ? document.seasons.map((season) => ({
         ...season,
@@ -209,7 +226,6 @@ class ClimateScheduleCard extends HTMLElement {
     });
     return {
       active_season: this._activeSeason,
-      gradient_end: this._gradientEnd,
       seasons: this._seasons.map((season) => ({
         id: season.id,
         name: season.name,
@@ -328,13 +344,17 @@ class ClimateScheduleCard extends HTMLElement {
     const { min, max } = this._range();
     const position = max === min ? 0.5 : (temperature - min) / (max - min);
     const normalized = Math.max(0, Math.min(1, position));
-    if (normalized === 0) return "#2563eb";
+    if (normalized === 0) return this._gradientStart;
     if (normalized === 1) return this._gradientEnd;
-    return `color-mix(in oklab, #2563eb ${Math.round((1 - normalized) * 100)}%, ${this._gradientEnd})`;
+    return `color-mix(in oklab, ${this._gradientStart} ${Math.round((1 - normalized) * 100)}%, ${this._gradientEnd})`;
   }
 
-  _render() {
+  _render({ preserveEditor = false } = {}) {
     if (!this._config || !this.shadowRoot) return;
+    // Home Assistant calls the hass setter whenever state changes. Rebuilding
+    // the shadow DOM while the dialog is open would replace its form controls,
+    // reset their values, and take focus away from the person editing.
+    if (preserveEditor && this._editor) return;
     const zone = this._zone();
     const range = this._range();
     const unit = this._hass?.config?.unit_system?.temperature || "°F";
@@ -411,13 +431,9 @@ class ClimateScheduleCard extends HTMLElement {
             <div class="scale-wrap" aria-label="Dynamic temperature color scale">
               <div class="scale-labels">
                 <span>${range.min}${unitMark}</span>
-                <span class="gradient-actions">
-                  <label class="gradient-picker" title="Choose the gradient warm color"><span aria-hidden="true">🎨</span><input data-action="gradient-end" type="color" value="${this._gradientEnd}" aria-label="Choose the gradient warm color"></label>
-                  <button class="gradient-reset" data-action="reset-gradient" title="Reset gradient color" aria-label="Reset gradient color">↺</button>
-                </span>
                 <span>${range.max}${unitMark}</span>
               </div>
-              <div class="scale" style="--gradient-end:${this._gradientEnd}"></div>
+              <div class="scale" style="--gradient-start:${this._gradientStart};--gradient-end:${this._gradientEnd}"></div>
             </div>
           </div>
 
@@ -671,28 +687,12 @@ class ClimateScheduleCard extends HTMLElement {
     this._openEditorRange(track.dataset.day, gap.start, gap.end);
   }
 
-  _handleChange(event) {
-    const picker = event.target.closest('[data-action="gradient-end"]');
-    if (!picker || !/^#[0-9a-f]{6}$/i.test(picker.value)) return;
-    this._gradientEnd = picker.value.toLowerCase();
-    this._render();
-    this._persist();
-  }
-
   _handleClick(event) {
     const button = event.target.closest("[data-action]");
     if (!button) return;
     const action = button.dataset.action;
 
     if (action === "resize") return;
-    if (action === "gradient-end") return;
-    if (action === "reset-gradient") {
-      if (this._gradientEnd === DEFAULT_GRADIENT_END) return;
-      this._gradientEnd = DEFAULT_GRADIENT_END;
-      this._render();
-      this._persist();
-      return;
-    }
 
     if (action === "zone") {
       this._selectedZone = Number(button.dataset.zone);
@@ -806,7 +806,7 @@ class ClimateScheduleCard extends HTMLElement {
 
   _styles() {
     return `
-      :host { display:block; color:var(--primary-text-color); }
+      :host { display:block; color:var(--primary-text-color); container-type:inline-size; }
       * { box-sizing:border-box; }
       button, input, select { font:inherit; }
       ha-card { overflow:hidden; background:var(--ha-card-background, var(--card-background-color)); }
@@ -823,7 +823,7 @@ class ClimateScheduleCard extends HTMLElement {
       .zone-tab.selected { background:color-mix(in srgb, var(--primary-color, #03a9f4) 18%, transparent); color:var(--primary-color, #03a9f4); font-weight:700; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--primary-color, #03a9f4) 30%, transparent); }
       .season-bar { display:flex; align-items:center; gap:12px; padding:0 24px 18px; }
       .season-label { flex:0 0 auto; color:var(--secondary-text-color); font-size:10px; font-weight:750; text-transform:uppercase; letter-spacing:.07em; }
-      .season-tabs { display:flex; gap:6px; overflow:auto; }
+      .season-tabs { display:flex; flex:1 1 auto; gap:6px; min-width:0; overflow:auto; }
       .season-tab { flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:8px 12px; border-radius:9px; color:var(--secondary-text-color); background:transparent; box-shadow:inset 0 0 0 1px var(--divider-color); }
       .season-tab.selected { color:var(--primary-text-color); background:color-mix(in srgb, var(--primary-color, #03a9f4) 10%, var(--card-background-color)); box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--primary-color, #03a9f4) 45%, transparent); font-weight:700; }
       .season-tab > span:first-child { font-size:14px; }
@@ -835,14 +835,8 @@ class ClimateScheduleCard extends HTMLElement {
       .zone-name { font-size:18px; font-weight:700; }
       .entity-id { color:var(--secondary-text-color); font-family:ui-monospace, SFMono-Regular, Consolas, monospace; font-size:12px; margin-top:3px; }
       .scale-wrap { width:230px; max-width:48%; }
-      .scale-labels { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; font-size:12px; font-weight:700; margin-bottom:4px; }
-      .scale-labels > :last-child { justify-self:end; }
-      .gradient-actions { display:flex; align-items:center; gap:5px; }
-      .gradient-picker { display:flex; align-items:center; gap:3px; color:var(--secondary-text-color); cursor:pointer; font-size:12px; }
-      .gradient-picker input { width:22px; height:18px; padding:0; border:0; border-radius:5px; background:transparent; cursor:pointer; }
-      .gradient-reset { width:18px; height:18px; padding:0; border-radius:50%; color:var(--secondary-text-color); background:transparent; font-size:16px; line-height:18px; }
-      .gradient-reset:hover, .gradient-reset:focus-visible { color:var(--primary-color); background:var(--secondary-background-color); }
-      .scale { height:8px; border-radius:999px; background:linear-gradient(90deg, #2563eb 0%, #7c3aed 48%, var(--gradient-end) 100%); box-shadow:inset 0 0 0 1px rgb(255 255 255 / 18%); }
+      .scale-labels { display:flex; align-items:center; justify-content:space-between; font-size:12px; font-weight:700; margin-bottom:4px; }
+      .scale { height:8px; border-radius:999px; background:linear-gradient(90deg, var(--gradient-start) 0%, var(--gradient-end) 100%); box-shadow:inset 0 0 0 1px rgb(255 255 255 / 18%); }
       .time-axis { position:relative; height:34px; margin-left:48px; border-bottom:1px solid var(--divider-color); }
       .time-tick { position:absolute; transform:translateX(-50%); font-size:10px; color:var(--secondary-text-color); bottom:4px; }
       .daylight-axis { position:absolute; top:0; bottom:0; left:25%; width:50%; border-inline:1px dashed color-mix(in srgb, #fbbf24 58%, transparent); background:linear-gradient(90deg, color-mix(in srgb, #fbbf24 5%, transparent), color-mix(in srgb, #fbbf24 14%, transparent), color-mix(in srgb, #fbbf24 5%, transparent)); pointer-events:none; }
@@ -893,12 +887,16 @@ class ClimateScheduleCard extends HTMLElement {
       .day-pills input:checked + span { color:white; background:var(--primary-color); }
       .error { margin-top:14px; padding:10px 12px; border-radius:8px; background:color-mix(in srgb, var(--error-color, #db4437) 12%, transparent); color:var(--error-color, #db4437); font-size:12px; }
       .editor-actions { display:grid; grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center; margin-top:22px; }
+      @container (max-width:720px) {
+        .season-bar { align-items:stretch; flex-direction:column; gap:8px; }
+        .season-tabs { width:100%; max-width:100%; }
+        .activate-season { align-self:flex-start; margin-left:0; }
+      }
       @media (max-width:700px) {
         .card-header { align-items:flex-start; padding:18px 16px 14px; }
         .card-header .primary { padding:9px 10px; }
         .zone-tabs { padding:0 16px 14px; }
-        .season-bar { align-items:flex-start; padding:0 16px 14px; flex-wrap:wrap; }
-        .activate-season { margin-left:0; }
+        .season-bar { padding:0 16px 14px; }
         .schedule-shell { margin:0 8px 12px; padding:13px 9px; }
         .schedule-heading { display:block; }
         .scale-wrap { width:100%; max-width:none; margin-top:14px; }
