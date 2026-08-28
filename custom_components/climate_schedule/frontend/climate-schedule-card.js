@@ -144,8 +144,12 @@ class ClimateScheduleCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const firstHass = !this._hass;
     this._hass = hass;
-    this._render({ preserveEditor: true });
+    // This card renders saved schedule data, not live climate state. Home
+    // Assistant assigns hass for every state update, so redrawing here would
+    // reset the dashboard's scroll position while someone is reading it.
+    if (firstHass) this._render();
     this._loadSchedule();
   }
 
